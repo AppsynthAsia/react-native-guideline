@@ -4,18 +4,15 @@
 
   1. [Basic Rules](#basic-rules)
   1. [Class vs stateless](#class-vs-stateless)
-  1. [Naming](#naming)
   1. [Declaration](#declaration)
   1. [Alignment](#alignment)
   1. [Quotes](#quotes)
   1. [Spacing](#spacing)
   1. [Props](#props)
   1. [PropTypes](#proptypes)
-  1. [Parentheses](#parentheses)
-  1. [Tags](#tags)
-  1. [Methods](#methods)
-  1. [Ordering](#ordering)
-  1. [`isMounted`](#ismounted)
+  1. [Functions](#functions)
+  1. [Class Structure](#class-structure)
+  1. [Component Structure](#component-structure)
 
 ## Basic Rules
 
@@ -194,7 +191,216 @@
     ```
 ## PropTypes
 
+  - Always define explicit defaultProps for all non-required props.
+
+  > Why? propTypes are a form of documentation, and providing defaultProps means the reader of your code doesn’t have to assume as much. In addition, it can mean that your code can omit certain type checks.
+
+  ```jsx
+  // bad
+  function SFC({ foo, bar, children }) {
+    return <Text>{foo}{bar}{children}</Text>;
+  }
+  SFC.propTypes = {
+    foo: PropTypes.number.isRequired,
+    bar: PropTypes.string,
+    children: PropTypes.node,
+  };
+
+  // good
+  function SFC({ foo, bar, children }) {
+    return <div>{foo}{bar}{children}</div>;
+  }
+  SFC.propTypes = {
+    foo: PropTypes.number.isRequired,
+    bar: PropTypes.string,
+    children: PropTypes.node,
+  };
+  SFC.defaultProps = {
+    bar: '',
+    children: null,
+  };
+  ```
+
+  - How to define `propTypes`, `defaultProps`, `contextTypes`, etc...
+
+  ```jsx
+  import React from 'react';
+  import PropTypes from 'prop-types';
+
+  const propTypes = {
+    id: PropTypes.number.isRequired,
+    url: PropTypes.string.isRequired,
+    text: PropTypes.string,
+  };
+
+  const defaultProps = {
+    text: 'Hello World',
+  };
+
+  class Link extends React.Component {
+    static methodsAreOk() {
+      return true;
+    }
+
+    render() {
+      return <a href={this.props.url} data-id={this.props.id}>{this.props.text}</a>;
+    }
+  }
+
+  Link.propTypes = propTypes;
+  Link.defaultProps = defaultProps;
+
+  export default Link;
+  ```
+  
+## Functions 
+
+  - Use arrow functions to close over local variables.
+
+    ```jsx
+    function ItemList(props) {
+      return (
+        <View>
+          {props.items.map((item, index) => (
+            <Item
+              key={item.key}
+              onClick={() => doSomethingWith(item.name, index)}
+            />
+          ))}
+        </View>
+      );
+    }
+    ```
+
+  - Bind event handlers for the render method in the constructor. eslint: [`react/jsx-no-bind`](https://github.com/yannickcr/eslint-plugin-react/blob/master/docs/rules/jsx-no-bind.md)
+
+    > Why? A bind call in the render path creates a brand new function on every single render.
+
+    ```jsx
+    // bad
+    class extends React.Component {
+      onClickDiv() {
+        // do stuff
+      }
+
+      render() {
+        return <div onClick={this.onClickDiv.bind(this)} />;
+      }
+    }
+
+    // good
+    class extends React.Component {
+      constructor(props) {
+        super(props);
+
+        this.onClickDiv = this.onClickDiv.bind(this);
+      }
+
+      onClickDiv() {
+        // do stuff
+      }
+
+      render() {
+        return <div onClick={this.onClickDiv} />;
+      }
+    }
+    ```
+
+  - Do not use underscore prefix for internal methods of a React component.
+    > Why? Underscore prefixes are sometimes used as a convention in other languages to denote privacy. But, unlike those languages, there is no native support for privacy in JavaScript, everything is public. Regardless of your intentions, adding underscore prefixes to your properties does not actually make them private, and any property (underscore-prefixed or not) should be treated as being public. See issues [#1024](https://github.com/airbnb/javascript/issues/1024), and [#490](https://github.com/airbnb/javascript/issues/490) for a more in-depth discussion.
+
+    ```jsx
+    // bad
+    React.createClass({
+      _onClickSubmit() {
+        // do stuff
+      },
+
+      // other stuff
+    });
+
+    // good
+    class extends React.Component {
+      onClickSubmit() {
+        // do stuff
+      }
+
+      // other stuff
+    }
+    ```
+
 ## Class Structure
 
+  - Prefered order for `class extends React.Component`:
+
+  1. optional `static` methods
+  1. `constructor`
+  1. `getChildContext`
+  1. `componentWillMount`
+  1. `componentDidMount`
+  1. `componentWillReceiveProps`
+  1. `shouldComponentUpdate`
+  1. `componentWillUpdate`
+  1. `componentDidUpdate`
+  1. `componentWillUnmount`
+  1. *clickHandlers or eventHandlers* like `onClickSubmit()` or `onChangeDescription()`
+  1. *getter methods for `render`* like `getSelectReason()` or `getFooterContent()`
+  1. *optional render methods* like `renderNavigation()` or `renderProfilePicture()`
+  1. `render`
+
+
 ## Component Structure
+
+  - Logically breakdown components into more easily manageable fragments
+  > Why? This improves readibility and maintainability.
+
+  ```jsx
+  // bad
+  <View style={styles.container}>
+     <View style={styles.header}>
+      <View style={styles.rightHeaderItems}>
+        { option ? <TouchableOpacity style={{marginLeft: 20,}} onPress={onPress}>
+          <Image source={IMAGE_CLEAR} />
+        </TouchableOpacity> : null}
+      </View>
+    </View>
+    <View style={styles.body}>
+      <View style={styles.rows}>
+        <View style={styles.textBlock}>
+          <Text style={textStyles.bodyTextLight}>{value}</Text>
+        </View>
+      </View>
+    </View>
+  </View>
+
+  // good
+  <View style={styles.container}>
+    <Header onPress={() => onPressButton()} />
+    <Body value={100} />
+  </View>
+
+  function Header({ onPress }) {
+    return (
+      <View style={styles.header}>
+        <View style={styles.rightHeaderItems}>
+          { option ? <TouchableOpacity style={{marginLeft: 20,}} onPress={onPress}>
+            <Image source={IMAGE_CLEAR} />
+          </TouchableOpacity> : null}
+        </View>
+      </View>
+    );
+  }
+
+  function Body({ value }) {
+    return (
+      <View style={styles.body}>
+        <View style={styles.rows}>
+          <View style={styles.textBlock}>
+            <Text style={textStyles.bodyTextLight}>{value}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  ```
 
